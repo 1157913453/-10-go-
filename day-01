@@ -65,6 +65,7 @@ func main() {
 }
 个人总结：m[key] = &val传递的是val变量的指针
 
+
 ----------------------------------------------------------------------------------------------------------------------
 
 三.
@@ -110,6 +111,332 @@ new(T) 会为 T 类型的新值分配已置零的内存空间，并返回地址�
 make(T,args) 返回初始化之后的 T 类型的值，这个值并不是 T 类型的零值，也不是指针 *T，是经过初始化之后的 T 的引用。make() 只适用于 slice、map 和 channel.
 个人总结：new(T)传递的是指针，适用于值类型如数组，结构体，值类型还有int，float,bool,string等，make(T,args)传递的是经过初始化后T的引用，只适用于slice,map,channel
 
+
 ----------------------------------------------------------------------------------------------------------------------
 四.
+1.下面这段代码能否通过编译，不能的话原因是什么；如果能，输出什么。
+func main() {
+    list := new([]int)
+    list = append(list, 1)
+    fmt.Println(list)
+}
+参考答案及解析：不能通过编译，new([]int) 之后的 list 是一个 *[]int 类型的指针，不能对指针执行 append 操作。可以使用 make() 初始化之后再用。同样的，map 和 channel 建议使用 make() 或字面量的方式初始化，不要用 new() 。
+个人总结：new(T)传递的是指针，需用make对list并未初始化，map,channer同理。
 
+2.下面这段代码能否通过编译，如果可以，输出什么？
+func main() {
+    s1 := []int{1, 2, 3}
+    s2 := []int{4, 5}
+    s1 = append(s1, s2)
+    fmt.Println(s1)
+}
+参考答案及解析：不能通过编译。append() 的第二个参数不能直接使用 slice，需使用 … 操作符，将一个切片追加到另一个切片上：append(s1,s2…)。或者直接跟上元素，形如：append(s1,1,2,3)。
+个人总结:append()的第二个参数是数组、切片时，第二个参数后面必须加上...
+
+3.下面这段代码能否通过编译，如果可以，输出什么？
+var(
+    size := 1024
+    max_size = size*2
+)
+
+func main() {
+    fmt.Println(size,max_size)
+}
+参考答案及解析：不能通过编译。这道题的主要知识点是变量声明的简短模式，形如：x := 100。但这种声明方式有限制：
+
+1.必须使用显示初始化；
+2.不能提供数据类型，编译器会自动推导；
+3.只能在函数内部使用简短模式；
+个人总结：函数内部无法直接使用外部用:=赋值的变量
+
+
+----------------------------------------------------------------------------------------------------------------------
+五.
+1.下面这段代码能否通过编译？不能的话，原因是什么？如果通过，输出什么？
+func main() {
+    sn1 := struct {
+        age  int
+        name string
+    }{age: 11, name: "qq"}
+    sn2 := struct {
+        age  int
+        name string
+    }{age: 11, name: "qq"}
+
+    if sn1 == sn2 {
+        fmt.Println("sn1 == sn2")
+    }
+
+    sm1 := struct {
+        age int
+        m   map[string]string
+    }{age: 11, m: map[string]string{"a": "1"}}
+    sm2 := struct {
+        age int
+        m   map[string]string
+    }{age: 11, m: map[string]string{"a": "1"}}
+
+    if sm1 == sm2 {
+        fmt.Println("sm1 == sm2")
+    }
+}
+参考答案及解析：编译不通过 invalid operation: sm1 == sm2
+
+这道题目考的是结构体的比较，有几个需要注意的地方：
+
+结构体只能比较是否相等，但是不能比较大小。
+相同类型的结构体才能够进行比较，结构体是否相同不但与属性类型有关，还与属性顺序相关，sn3 与 sn1 就是不同的结构体；
+     sn3:= struct {
+            name string
+            age  int
+        }{age:11,name:"qq"}
+如果 struct 的所有成员都可以比较，则该 struct 就可以通过 == 或 != 进行比较是否相等，比较时逐个项进行比较，如果每一项都相等，则两个结构体才相等，否则不相等；
+那什么是可比较的呢，常见的有 bool、数值型、字符、指针、数组等，像切片、map、函数等是不能比较的。 具体可以参考 Go 说明文档。https://golang.org/ref/spec#Comparison_operators
+个人总结：当结构体内部成员都可以比较的时候，且结构体内部成员顺序相同时，两结构体才相等；结构体无法比较大小，切片、map、函数等无法进行比较。
+
+
+----------------------------------------------------------------------------------------------------------------------
+六.
+1.通过指针变量 p 访问其成员变量 name，有哪几种方式？
+A.p.name
+B.(&p).name
+C.(*p).name
+D.p->name
+参考答案及解析：AC。& 取址运算符，* 指针解引用。
+个人总结：注意！！可以直接使用p.name
+
+2.下面这段代码能否通过编译？如果通过，输出什么？
+package main
+
+import "fmt"
+
+type MyInt1 int
+type MyInt2 = int
+
+func main() {
+    var i int =0
+    var i1 MyInt1 = i 
+    var i2 MyInt2 = i
+    fmt.Println(i1,i2)
+}
+参考答案及解析：编译不通过，cannot use i (type int) as type MyInt1 in assignment。
+
+这道题考的是类型别名与类型定义的区别。
+
+第 5 行代码是基于类型 int 创建了新类型 MyInt1，第 6 行代码是创建了 int 的类型别名 MyInt2，注意类型别名的定义时 = 。所以，第 10 行代码相当于是将 int 类型的变量赋值给 MyInt1 类型的变量，Go 是强类型语言，编译当然不通过；而 MyInt2 只是 int 的别名，本质上还是 int，可以赋值。
+
+第 10 行代码的赋值可以使用强制类型转化 var i1 MyInt1 = MyInt1(i).
+个人总结：MyInt1是个新类型，和int无法等同，MyInt2知只是int的别名
+
+
+----------------------------------------------------------------------------------------------------------------------
+七.
+1.关于字符串连接，下面语法正确的是？
+A. str := ‘abc’ + ‘123’
+B. str := “abc” + “123”
+str := ‘123’ + “abc”
+D. fmt.Sprintf(“abc%d”, 123)
+参考答案及解析：BD。知识点：字符串连接。除了以上两种连接方式，还有 strings.Join()、buffer.WriteString()等。
+
+2.下面这段代码能否编译通过？如果可以，输出什么？
+const (
+     x = iota
+     _
+     y
+     z = "zz"
+     k 
+     p = iota
+ )
+
+func main()  {
+    fmt.Println(x,y,z,k,p)
+}
+参考答案及解析：编译通过，输出：0 2 zz zz 5。知识点：iota 的使用。给大家贴篇文章，讲的很详细
+https://www.cnblogs.com/zsy/p/5370052.html
+个人总结：枚举类型iota，在const中只要出现新变量且换行，iota便会自增，新的const中会重置为0
+
+3.下面赋值正确的是()
+A. var x = nil
+B. var x interface{} = nil
+C. var x string = nil
+D. var x error = nil
+参考答案及解析：BD。知识点：nil 值。nil 只能赋值给指针、chan、func、interface、map 或 slice 类型的变量。强调下 D 选项的 error 类型，它是一种内置接口类型，看下方贴出的源码就知道，所以 D 是对的。
+
+type error interface {
+    Error() string
+}
+个人总结：chan，指针，map，interface，slice，函数可以为nil
+
+
+----------------------------------------------------------------------------------------------------------------------
+八.
+1.关于init函数，下面说法正确的是()
+A. 一个包中，可以包含多个 init 函数；
+B. 程序编译时，先执行依赖包的 init 函数，再执行 main 包内的 init 函数；
+C. main 包中，不能有 init 函数；
+D. init 函数可以被其他函数调用；
+1.参考答案及解析：AB。关于 init() 函数有几个需要注意的地方：
+
+init() 函数是用于程序执行前做包的初始化的函数，比如初始化包里的变量等;
+一个包可以出线多个 init() 函数,一个源文件也可以包含多个 init() 函数；
+同一个包中多个 init() 函数的执行顺序没有明确定义，但是不同包的init函数是根据包导入的依赖关系决定的（看下图）;
+init() 函数在代码中不能被显示调用、不能被引用（赋值给函数变量），否则出现编译错误;
+一个包被引用多次，如 A import B,C import B,A import C，B 被引用多次，但 B 包只会初始化一次；
+引入包，不可出现死循坏。即 A import B,B import A，这种情况编译失败；
+个人总结：init函数只会初始化一次，init()函数不能被调用，数量没有限制
+
+
+2.下面这段代码输出什么以及原因？
+func hello() []string {  
+     return nil
+ }
+
+ func main() {  
+     h := hello
+     if h == nil {
+         fmt.Println("nil")
+     } else {
+        fmt.Println("not nil")
+    }
+}
+A. nil
+
+B. not nil
+
+C. compilation error
+
+答案及解析：B。这道题目里面，是将 hello() 赋值给变量 h，而不是函数的返回值，所以输出 not nil。
+个人总结：函数并未执行
+
+
+3.下面这段代码能否编译通过？如果可以，输出什么？
+func GetValue() int {
+     return 1
+ }
+
+ func main() {
+     i := GetValue()
+     switch i.(type) {
+     case int:
+         println("int")
+     case string:
+        println("string")
+     case interface{}:
+        println("interface")
+     default:
+        println("unknown")
+    }
+}
+
+
+----------------------------------------------------------------------------------------------------------------------
+九.
+1.关于channel，下面语法正确的是()
+A. var ch chan int
+
+B. ch := make(chan int)
+
+C. <- ch
+
+D. ch <-
+
+参考答案及解析：ABC。A、B都是声明 channel；C 读取 channel；写 channel 是必须带上值，所以 D 错误。
+
+2.下面这段代码输出什么？
+type person struct {  
+    name string
+}
+
+func main() {  
+    var m map[person]int
+    p := person{"mike"}
+    fmt.Println(m[p])
+}
+A.0
+
+B.1
+
+C.Compilation error
+
+参考答案及解析：A。打印一个 map 中不存在的值时，返回元素类型的零值。这个例子中，m 的类型是 map[person]int，因为 m 中不存在 p，所以打印 int 类型的零值，即 0。
+
+3.下面这段代码输出什么？
+func hello(num ...int) {  
+    num[0] = 18
+}
+
+func main() {  
+    i := []int{5, 6, 7}
+    hello(i...)
+    fmt.Println(i[0])
+}
+A.18
+
+B.5
+
+C.Compilation error
+
+参考答案及解析：18。知识点：可变函数。
+
+
+----------------------------------------------------------------------------------------------------------------------
+1.下面这段代码输出什么？
+func main() {  
+    a := 5
+    b := 8.1
+    fmt.Println(a + b)
+}
+A.13.1
+
+B.13
+
+C.compilation error
+
+参考答案及解析：C。a 的类型是 int，b 的类型是 float，两个不同类型的数值不能相加，编译报错。
+个人总结：不同类型不能相加，编译错误
+
+2.下面这段代码输出什么？
+package main
+
+import (  
+    "fmt"
+)
+
+func main() {  
+    a := [5]int{1, 2, 3, 4, 5}
+    t := a[3:4:4]
+    fmt.Println(t[0])
+}
+A.3
+
+B.4
+
+C.compilation error
+
+参考答案及解析：B。知识点：操作符 [i,j]。基于数组（切片）可以使用操作符 [i,j] 创建新的切片，从索引 i，到索引 j 结束，截取已有数组（切片）的任意部分，返回新的切片，新切片的值包含原数组（切片）的 i 索引的值，但是不包含 j 索引的值。i、j 都是可选的，i 如果省略，默认是 0，j 如果省略，默认是原数组（切片）的长度。i、j 都不能超过这个长度值。
+
+假如底层数组的大小为 k，截取之后获得的切片的长度和容量的计算方法：长度：j-i，容量：k-i。
+
+截取操作符还可以有第三个参数，形如 [i,j,k]，第三个参数 k 用来限制新切片的容量，但不能超过原数组（切片）的底层数组大小。截取获得的切片的长度和容量分别是：j-i、k-i。
+
+所以例子中，切片 t 为 [4]，长度和容量都是 1。
+个人总结：切片的第三个参数表示的是容量cap，如b[1:3:4]的容量是4-1=3
+
+3.下面这段代码输出什么？
+func main() {
+    a := [2]int{5, 6}
+    b := [3]int{5, 6}
+    if a == b {
+        fmt.Println("equal")
+    } else {
+        fmt.Println("not equal")
+    }
+}
+A. compilation error
+
+B. equal
+
+C. not equal
+
+参考答案及解析：A。Go 中的数组是值类型，可比较，另外一方面，数组的长度也是数组类型的组成部分，所以 a 和 b 是不同的类型，是不能比较的，所以编译错误。
+个人总结：数组长度也是类型的一部分，不同类型无法比较，编译错误
